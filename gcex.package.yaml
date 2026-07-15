@@ -1,0 +1,6 @@
+include:
+  - dist
+  - config
+  - package.json
+  - README.md
+  - LICENSE

@@ -1,0 +1,211 @@
+id: lociere.napcat-adapter
+name: NapCat Adapter
+version: 0.1.0
+publisher: lociere
+license: GPL-3.0-only
+repository: https://github.com/lociere/glimmer-cradle-napcat-adapter
+homepage: https://github.com/lociere/glimmer-cradle-napcat-adapter
+author: lociere
+description: Adapter extension for NapCat OneBot 11 reverse WebSocket integration
+platforms:
+  - windows-x64
+main: dist/index.js
+minAppVersion: 0.1.0
+tags:
+  - adapter
+  - websocket
+  - qq
+  - onebot11
+  - multimodal
+requires:
+  - perception
+  - sceneAttention
+  - events
+  - commands
+  - runtime
+permissions:
+  - PERCEPTION_WRITE
+  - EVENT_SUBSCRIBE
+  - CONFIG_READ_SELF
+  - CHAT_SEND
+  - COMMAND_REGISTER
+  - RUNTIME_PROJECTION_WRITE
+  - EXTERNAL_NETWORK
+  - EXTERNAL_PROCESS
+
+contributes:
+  glimmer.command:
+    - command: lociere.napcat-adapter.getStatus
+      title: 读取状态
+      audience: user
+      category: NapCat
+    - command: lociere.napcat-adapter.refreshQrcode
+      title: 刷新登录二维码
+      audience: user
+      category: NapCat
+      preconditions:
+        - nodeId: webui-management
+          requiredState: ready
+    - command: lociere.napcat-adapter.quickLogin
+      title: 快速登录账号
+      audience: user
+      category: NapCat
+      preconditions:
+        - nodeId: webui-management
+          requiredState: ready
+    - command: lociere.napcat-adapter.setAutoLoginAccount
+      title: 设置自动登录账号
+      audience: user
+      category: NapCat
+      preconditions:
+        - nodeId: webui-management
+          requiredState: ready
+    - command: lociere.napcat-adapter.openWebUi
+      title: 打开管理面板
+      audience: user
+      category: NapCat
+      preconditions:
+        - nodeId: webui-management
+          requiredState: ready
+  glimmer.capability:
+    - id: qq-ingress
+      title: QQ 入站感知
+      audience: adapter
+      description: 将 OneBot 消息清洗后注入微光摇篮感知主线。
+      resourceIds:
+        - onebot-bridge
+      permissions:
+        - PERCEPTION_WRITE
+      required: true
+    - id: qq-reply
+      title: QQ 受控回复
+      audience: adapter
+      description: 将角色回复通过 OneBot 发送回对应 QQ 场景。
+      resourceIds:
+        - onebot-bridge
+      permissions:
+        - CHAT_SEND
+      required: false
+    - id: napcat-management
+      title: NapCat 管理面板
+      audience: user
+      description: 管理二维码、快速登录、切换账号和打开 WebUI。
+      resourceIds:
+        - webui-management
+      permissions:
+        - EXTERNAL_NETWORK
+      required: false
+  glimmer.managementSurface:
+    - id: napcat-status
+      title: NapCat 状态
+      audience: user
+      kind: status
+      resourceIds:
+        - napcat
+        - onebot-bridge
+        - webui-management
+      capabilityIds:
+        - qq-ingress
+        - qq-reply
+        - napcat-management
+    - id: napcat-management
+      title: NapCat 管理
+      audience: user
+      kind: management
+      resourceIds:
+        - webui-management
+      capabilityIds:
+        - napcat-management
+  glimmer.setting:
+    - key: transport.port
+      title: OneBot 端口
+      description: NapCat 反向 WebSocket 连接端口；0 表示启动时自动选择空闲回环端口。
+      type: number
+      default: 0
+    - key: external_dependency.managed_process_enabled
+      title: 受管启动
+      description: 由扩展自动准备并启动 NapCat 上游进程。
+      type: boolean
+      default: true
+    - key: external_dependency.launch_mode
+      title: 启动模式
+      description: official_direct 使用 NapCatWinBootMain.exe 由摇篮受管启动；official_shell 显式使用官方 Shell 脚本；custom 使用自定义 command。
+      type: string
+      default: official_direct
+    - key: external_dependency.qq_path
+      title: 专用 QQ 路径
+      description: 留空时优先使用 NapCat 包内置 QQ，再回退系统 QQ。建议指向 NapCat 专用 QQ.exe，避免影响日常 QQ。
+      type: string
+      default: ""
+    - key: external_dependency.elevation_mode
+      title: 启动权限
+      description: user 由摇篮直接监督官方启动器；admin 仅在本机确需提权时使用，会变成 detached bootstrap 并等待 probe 闭环。
+      type: string
+      default: user
+    - key: external_dependency.allow_preexisting_qq
+      title: 允许已运行 QQ
+      description: 默认关闭；仅当 NapCat 将要注入的目标 QQ.exe 已运行时才阻止启动。日常使用的其他 QQ 实例不应阻止 NapCat。
+      type: boolean
+      default: false
+    - key: external_dependency.preferred_account
+      title: 首选账号
+      description: 留空表示沿用当前 NapCat 账号。
+      type: string
+      default: ""
+    - key: ingress.group_enabled
+      title: 群聊接入
+      description: 允许 NapCat 群聊消息进入受控感知链路。
+      type: boolean
+      default: true
+    - key: reply.enabled
+      title: 自动回复
+      description: 允许角色通过 NapCat 对可回复场景发送消息。
+      type: boolean
+      default: true
+
+  glimmer.managedResource:
+    - id: napcat
+      displayName: NapCat
+      audience: host
+      kind: managedProcess
+      required: true
+      description: Provides QQ connectivity through the OneBot 11 protocol. The package is stored under data/packages and is not part of the Glimmer Cradle source tree.
+      package:
+        source:
+          type: githubRelease
+          repository: NapNeko/NapCatQQ
+          assetName: NapCat.Shell.Windows.OneKey.zip
+          homepage: https://github.com/NapNeko/NapCatQQ
+          license: SEE UPSTREAM LICENSE
+        installDir: data/packages/managed-resources/lociere.napcat-adapter/napcat
+      process:
+        owner: extension
+        launchMode: direct
+        windowPolicy: hidden
+        readinessPolicy: probeRequired
+        args: []
+      readinessGates:
+        - kind: startup
+          type: custom
+    - id: webui-management
+      displayName: NapCat WebUI Management
+      audience: user
+      kind: managementEndpoint
+      required: false
+      description: NapCat WebUI management endpoint for QR code, quick login and account management. It is independent from OneBot readiness.
+      readinessGates:
+        - kind: management
+          type: http
+          endpoint: http://127.0.0.1:6099/webui
+          timeoutMs: 1800
+  glimmer.protocolBridge:
+    - id: onebot-bridge
+      displayName: OneBot Bridge
+      audience: adapter
+      kind: protocolBridge
+      required: true
+      description: NapCat reverse WebSocket bridge into Glimmer Cradle. The bridge is ready only after NapCat connects and get_login_info succeeds.
+      readinessGates:
+        - kind: readiness
+          type: websocket
+          timeoutMs: 1800
