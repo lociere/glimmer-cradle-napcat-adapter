@@ -16,7 +16,7 @@
 
 ```powershell
 pnpm install --config.auto-install-peers=false
-node scripts/link-local-sdk.mjs D:\elise\glimmer-cradle
+node scripts/link-local-sdk.mjs C:\path\to\glimmer-cradle
 pnpm validate
 ```
 

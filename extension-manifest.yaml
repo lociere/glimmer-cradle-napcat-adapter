@@ -7,6 +7,8 @@ repository: https://github.com/lociere/glimmer-cradle-napcat-adapter
 homepage: https://github.com/lociere/glimmer-cradle-napcat-adapter
 author: lociere
 description: Adapter extension for NapCat OneBot 11 reverse WebSocket integration
+products:
+  - desktop
 platforms:
   - windows-x64
 main: dist/index.js
