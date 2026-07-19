@@ -3,9 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { pathToFileURL } from 'url';
 import type { ExtensionLogger } from '@glimmer-cradle/extension-sdk';
-import type { NapcatAdapterConfig } from '../../config/schema';
-
-type ExternalDependencyConfig = NapcatAdapterConfig['external_dependency'];
+import type { ManagedNapcatWindowsConfig } from '../../config/schema';
 
 interface LaunchSpec {
   command: string;
@@ -112,16 +110,11 @@ export class NapcatProcessController {
 
   constructor(
     private readonly logger: ExtensionLogger,
-    private readonly config: ExternalDependencyConfig,
+    private readonly config: ManagedNapcatWindowsConfig,
     private readonly onebot: OneBotEndpointConfig,
   ) {}
 
   start(): void {
-    if (!this.config.managed_process_enabled) {
-      this.state = 'disabled';
-      return;
-    }
-
     if (this.child) return;
     this.state = 'starting';
     this.lastError = '';
@@ -143,8 +136,8 @@ export class NapcatProcessController {
     const launch = this.resolveLaunchSpec(packageDir, workDir);
     if (!launch) {
       this.state = 'error';
-      this.lastError ||= 'managed process enabled but no launcher was found';
-      this.logger.error('[napcat] managed process enabled but no launcher was found', {
+      this.lastError ||= 'managed_napcat_windows 未找到可用启动器';
+      this.logger.error('[napcat] managed_napcat_windows launcher was not found', {
         package_dir: packageDir,
       });
       return;
@@ -387,7 +380,7 @@ export class NapcatProcessController {
     this.refreshReadinessState();
     return {
       state: this.state,
-      managed: this.config.managed_process_enabled,
+      managed: true,
       command: this.lastCommand,
       cwd: this.lastCwd,
       workDir: this.resolveWorkDir(),
@@ -491,8 +484,8 @@ export class NapcatProcessController {
       this.lastError = 'NapCat official direct launcher 不可用，请安装官方 Windows Shell/OneKey 包，或显式改用 official_shell/custom。';
       this.recoveryActions = [
         '确认 data/packages/managed-resources/lociere.napcat-adapter/napcat 指向 OneKey 根目录，且包含 NapCatWinBootMain.exe、QQ.exe 与 versions/<version>/resources/app/napcat/napcat.mjs。',
-        '如果 external_dependency.qq_path 指向外部 QQ，请确认包内 resources/app/napcat 目录包含 NapCatWinBootMain.exe、NapCatWinBootHook.dll、qqnt.json 与 napcat.mjs。',
-        '如果必须使用 launcher.bat，请把 external_dependency.launch_mode 显式设为 official_shell。',
+        '如果 managed_napcat_windows.qq_path 指向外部 QQ，请确认包内 resources/app/napcat 目录包含 NapCatWinBootMain.exe、NapCatWinBootHook.dll、qqnt.json 与 napcat.mjs。',
+        '如果必须使用 launcher.bat，请把 managed_napcat_windows.launch_mode 显式设为 official_shell。',
       ];
       return null;
     }
@@ -1223,7 +1216,7 @@ export function buildNapcatStartupRecoveryActions(
       targetQqSource === 'system'
         ? '当前使用系统 QQ 作为 NapCat 启动目标；请关闭该 QQ，或改用包含内置 QQ 的 NapCat Shell Windows OneKey 包以避免影响日常 QQ。'
         : targetQqSource === 'configured'
-          ? '当前配置的 NapCat 专用 QQ 已在运行；请关闭该专用 QQ，或把 external_dependency.qq_path 指向另一个专用 QQ。'
+          ? '当前配置的 NapCat 专用 QQ 已在运行；请关闭该专用 QQ，或把 managed_napcat_windows.qq_path 指向另一个专用 QQ。'
         : '关闭 NapCat 受管包内的 QQ.exe 后，从摇篮重新启动 NapCat Adapter，让官方 direct launcher 重新注入。',
     );
   }

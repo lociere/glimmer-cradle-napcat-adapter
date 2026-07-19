@@ -2,6 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
+import { NapcatAdapterConfigSchema } from '../config/schema';
 import {
   buildNapcatStartupRecoveryActions,
   isQqProcessConflict,
@@ -12,12 +13,16 @@ import {
 import type { OneBotBridgeSessionSnapshot } from './connection/onebot-bridge-session';
 import type { NapcatWebUiSnapshot } from './napcat/napcat-webui-client';
 import {
-  summarizeAdapterState,
-  toCapabilityNodes,
+  buildRuntimeProjection,
+  summarizeExternalProfileState,
+  summarizeManagedProfileState,
+  toCoreCapabilityNodes,
+  toExternalOneBotSourceNode,
+  toManagedCapabilityNodes,
   toOneBotNode,
   toProcessNode,
   toWebUiNode,
-} from './napcat-adapter-extension';
+} from './runtime/runtime-projection';
 
 const now = '2026-07-04T00:00:00.000Z';
 
@@ -102,8 +107,8 @@ describe('NapCat runtime projection', () => {
     expect(process.state).toBe('degraded');
     expect((process.metadata.recovery_actions as string[])[0]).toContain('受管包内的 QQ.exe');
     expect(webui.state).toBe('degraded');
-    expect(summarizeAdapterState(process, toOneBotNode(onebotSnapshot({}), now), webui))
-      .toContain('上游未启动');
+    expect(summarizeManagedProfileState(process, toOneBotNode(onebotSnapshot({}), now), webui))
+      .toContain('官方 direct 启动可能无法完成注入');
   });
 
   it('explains system QQ conflict without telling the user to close every QQ process', () => {
@@ -134,8 +139,14 @@ describe('NapCat runtime projection', () => {
     const actions = buildNapcatStartupRecoveryActions(true, 'configured');
 
     expect(actions[0]).toContain('专用 QQ');
-    expect(actions[0]).toContain('external_dependency.qq_path');
+    expect(actions[0]).toContain('managed_napcat_windows.qq_path');
     expect(actions[0]).not.toContain('关闭所有 QQ');
+  });
+
+  it('defaults to external_onebot as the minimum runnable profile', () => {
+    const parsed = NapcatAdapterConfigSchema.parse({});
+
+    expect(parsed.profile.mode).toBe('external_onebot');
   });
 
   it('resolves NapCat Windows OneKey Shell layout from versions config', () => {
@@ -177,7 +188,7 @@ describe('NapCat runtime projection', () => {
     }), now);
     const webui = toWebUiNode(webuiSnapshot('ready', 'NapCat WebUI 已响应。'), now);
 
-    const capabilities = toCapabilityNodes(onebot, webui, true, now);
+    const capabilities = toManagedCapabilityNodes(onebot, webui, true, now);
     expect(capabilities.find((item) => item.id === 'qq-ingress')?.state).toBe('available');
     expect(capabilities.find((item) => item.id === 'napcat-management')?.state).toBe('available');
   });
@@ -193,9 +204,68 @@ describe('NapCat runtime projection', () => {
       'NapCat WebUI 未就绪：NapCat 上游未启动、未注入或管理端口未监听。',
     ), now);
 
-    const capabilities = toCapabilityNodes(onebot, webui, true, now);
+    const capabilities = toManagedCapabilityNodes(onebot, webui, true, now);
     expect(capabilities.find((item) => item.id === 'qq-ingress')?.state).toBe('available');
     expect(capabilities.find((item) => item.id === 'qq-reply')?.state).toBe('available');
     expect(capabilities.find((item) => item.id === 'napcat-management')?.state).toBe('degraded');
+  });
+
+  it('keeps external_onebot profile free of NapCat WebUI management capability', () => {
+    const onebot = toOneBotNode(onebotSnapshot({
+      state: 'ready',
+      connected: true,
+      ready: true,
+      endpoint: 'ws://0.0.0.0:5701/onebot',
+    }), now);
+    const upstream = toExternalOneBotSourceNode('ws://0.0.0.0:5701/onebot', onebot, now);
+    const capabilities = toCoreCapabilityNodes(onebot, true, now);
+
+    expect(upstream.id).toBe('external-onebot-source');
+    expect(capabilities.find((item) => item.id === 'napcat-management')).toBeUndefined();
+    expect(summarizeExternalProfileState(upstream, onebot)).toContain('外部 OneBot 协议已就绪');
+  });
+
+  it('builds external runtime projection without managed NapCat nodes', () => {
+    const projection = buildRuntimeProjection({
+      profile: {
+        mode: 'external_onebot',
+        endpoint: 'ws://127.0.0.1:5701/',
+      },
+      onebot: onebotSnapshot({
+        state: 'listening',
+        connected: false,
+        ready: false,
+        endpoint: 'ws://127.0.0.1:5701/',
+      }),
+      replyEnabled: true,
+      updatedAt: now,
+    });
+
+    expect(projection.nodes.map((item) => item.id)).toEqual([
+      'external-onebot-source',
+      'onebot-bridge',
+      'qq-ingress',
+      'qq-reply',
+    ]);
+    expect(projection.diagnostics.summary).toContain('等待外部 OneBot');
+  });
+
+  it('summarizes managed profile degradation from process and WebUI state', () => {
+    const process = toProcessNode(processSnapshot({
+      state: 'degraded',
+      lastError: 'NapCat 启动超时：bootstrap 或进程启动已完成，但 WebUI/OneBot 未在期限内 ready。',
+      recoveryActions: ['确认 NapCat WebUI 与扩展分配的 OneBot 回环端点未被防火墙或其他进程阻断。'],
+    }), now);
+    const onebot = toOneBotNode(onebotSnapshot({
+      state: 'disconnected',
+      connected: false,
+      ready: false,
+    }), now);
+    const webui = toWebUiNode(webuiSnapshot(
+      'unavailable',
+      'NapCat WebUI 未就绪：NapCat 上游未启动、未注入或管理端口未监听。',
+    ), now);
+
+    expect(summarizeManagedProfileState(process, onebot, webui)).toContain('启动超时');
   });
 });

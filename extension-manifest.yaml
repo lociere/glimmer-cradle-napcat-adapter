@@ -6,11 +6,13 @@ license: GPL-3.0-only
 repository: https://github.com/lociere/glimmer-cradle-napcat-adapter
 homepage: https://github.com/lociere/glimmer-cradle-napcat-adapter
 author: lociere
-description: Adapter extension for NapCat OneBot 11 reverse WebSocket integration
+description: Adapter extension for OneBot 11 reverse WebSocket integration, with optional managed NapCat on Desktop Windows
 products:
   - desktop
+  - personal-server
 platforms:
   - windows-x64
+  - linux-x64
 main: dist/index.js
 minAppVersion: 0.1.0
 tags:
@@ -25,6 +27,7 @@ requires:
   - events
   - commands
   - runtime
+  - agents
 permissions:
   - PERCEPTION_WRITE
   - EVENT_SUBSCRIBE
@@ -34,6 +37,7 @@ permissions:
   - RUNTIME_PROJECTION_WRITE
   - EXTERNAL_NETWORK
   - EXTERNAL_PROCESS
+  - AGENT_REGISTER
 
 contributes:
   glimmer.command:
@@ -41,6 +45,15 @@ contributes:
       title: 读取状态
       audience: user
       category: NapCat
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
     - command: lociere.napcat-adapter.refreshQrcode
       title: 刷新登录二维码
       audience: user
@@ -48,6 +61,13 @@ contributes:
       preconditions:
         - nodeId: webui-management
           requiredState: ready
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
     - command: lociere.napcat-adapter.quickLogin
       title: 快速登录账号
       audience: user
@@ -55,6 +75,13 @@ contributes:
       preconditions:
         - nodeId: webui-management
           requiredState: ready
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
     - command: lociere.napcat-adapter.setAutoLoginAccount
       title: 设置自动登录账号
       audience: user
@@ -62,6 +89,13 @@ contributes:
       preconditions:
         - nodeId: webui-management
           requiredState: ready
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
     - command: lociere.napcat-adapter.openWebUi
       title: 打开管理面板
       audience: user
@@ -69,6 +103,14 @@ contributes:
       preconditions:
         - nodeId: webui-management
           requiredState: ready
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+
   glimmer.capability:
     - id: qq-ingress
       title: QQ 入站感知
@@ -79,6 +121,15 @@ contributes:
       permissions:
         - PERCEPTION_WRITE
       required: true
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
     - id: qq-reply
       title: QQ 受控回复
       audience: adapter
@@ -88,90 +139,259 @@ contributes:
       permissions:
         - CHAT_SEND
       required: false
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
     - id: napcat-management
       title: NapCat 管理面板
       audience: user
-      description: 管理二维码、快速登录、切换账号和打开 WebUI。
+      description: 仅在 Desktop Windows managed NapCat profile 下提供二维码、快速登录和 WebUI 打开。
       resourceIds:
         - webui-management
       permissions:
         - EXTERNAL_NETWORK
       required: false
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+
   glimmer.managementSurface:
     - id: napcat-status
-      title: NapCat 状态
+      title: OneBot 状态
       audience: user
       kind: status
       resourceIds:
-        - napcat
+        - external-onebot-source
         - onebot-bridge
-        - webui-management
       capabilityIds:
         - qq-ingress
         - qq-reply
-        - napcat-management
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
     - id: napcat-management
       title: NapCat 管理
       audience: user
       kind: management
       resourceIds:
+        - napcat-managed-process
         - webui-management
       capabilityIds:
         - napcat-management
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+
   glimmer.setting:
+    - key: profile.mode
+      title: 上游 Profile
+      description: external_onebot 等待用户自管 OneBot/NapCat 反向连接；managed_napcat_windows 仅在 Desktop Windows 上显式启用受管 NapCat。
+      type: string
+      default: external_onebot
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
     - key: transport.port
       title: OneBot 端口
-      description: NapCat 反向 WebSocket 连接端口；0 表示启动时自动选择空闲回环端口。
+      description: 反向 WebSocket 监听端口；0 仅允许回环地址时自动选择空闲端口。
       type: number
       default: 0
-    - key: external_dependency.managed_process_enabled
-      title: 受管启动
-      description: 由扩展自动准备并启动 NapCat 上游进程。
-      type: boolean
-      default: true
-    - key: external_dependency.launch_mode
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
+    - key: managed_napcat_windows.launch_mode
       title: 启动模式
-      description: official_direct 使用 NapCatWinBootMain.exe 由摇篮受管启动；official_shell 显式使用官方 Shell 脚本；custom 使用自定义 command。
+      description: official_direct 使用 NapCatWinBootMain.exe；official_shell 显式使用官方 Shell；custom 使用自定义 command。
       type: string
       default: official_direct
-    - key: external_dependency.qq_path
+      requiresRestart: true
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+    - key: managed_napcat_windows.qq_path
       title: 专用 QQ 路径
       description: 留空时优先使用 NapCat 包内置 QQ，再回退系统 QQ。建议指向 NapCat 专用 QQ.exe，避免影响日常 QQ。
       type: string
       default: ""
-    - key: external_dependency.elevation_mode
+      requiresRestart: true
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+    - key: managed_napcat_windows.elevation_mode
       title: 启动权限
       description: user 由摇篮直接监督官方启动器；admin 仅在本机确需提权时使用，会变成 detached bootstrap 并等待 probe 闭环。
       type: string
       default: user
-    - key: external_dependency.allow_preexisting_qq
+      requiresRestart: true
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+    - key: managed_napcat_windows.allow_preexisting_qq
       title: 允许已运行 QQ
       description: 默认关闭；仅当 NapCat 将要注入的目标 QQ.exe 已运行时才阻止启动。日常使用的其他 QQ 实例不应阻止 NapCat。
       type: boolean
       default: false
-    - key: external_dependency.preferred_account
+      requiresRestart: true
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+    - key: managed_napcat_windows.preferred_account
       title: 首选账号
       description: 留空表示沿用当前 NapCat 账号。
       type: string
       default: ""
+      requiresRestart: true
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
     - key: ingress.group_enabled
       title: 群聊接入
-      description: 允许 NapCat 群聊消息进入受控感知链路。
+      description: 允许 OneBot 群聊消息进入受控感知链路。
       type: boolean
       default: true
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
     - key: reply.enabled
       title: 自动回复
-      description: 允许角色通过 NapCat 对可回复场景发送消息。
+      description: 允许角色通过 OneBot 对可回复场景发送消息。
       type: boolean
       default: true
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
+
+  glimmer.skill:
+    - id: qq-source-context
+      name: QQ Source Context
+      description: 仅在 NapCat / OneBot 来源会话中可见的上下文能力说明。
+      audience: character
+      scope:
+        kind: source_provider
+        ids:
+          - $self
+      policy:
+        riskLevel: low
+        confirmationRequired: false
+        sideEffects: []
+        audit: true
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
+      tools:
+        - name: lociere.napcat-adapter.describe_source_context
+          description: 返回当前 QQ / OneBot 来源下可用的回复与上下文约束。
+          audience: character
+          scope:
+            kind: source_provider
+            ids:
+              - $self
+          requirements:
+            products:
+              - desktop
+              - personal-server
+            platforms:
+              - windows-x64
+              - linux-x64
+            features:
+              - extensions
+          parameters:
+            type: object
+            additionalProperties: false
+            properties: {}
 
   glimmer.managedResource:
-    - id: napcat
-      displayName: NapCat
+    - id: external-onebot-source
+      displayName: External OneBot Source
+      audience: host
+      kind: localService
+      required: true
+      description: User-managed OneBot / NapCat upstream that reverse-connects into this extension. No third-party binary is bundled into the product.
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
+    - id: napcat-managed-process
+      displayName: NapCat Managed Process
       audience: host
       kind: managedProcess
       required: true
-      description: Provides QQ connectivity through the OneBot 11 protocol. The package is stored under data/packages and is not part of the Glimmer Cradle source tree.
+      description: Optional Desktop Windows managed NapCat upstream. The package is stored under data/packages and is not part of the Glimmer Cradle source tree.
       package:
         source:
           type: githubRelease
@@ -189,6 +409,13 @@ contributes:
       readinessGates:
         - kind: startup
           type: custom
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
     - id: webui-management
       displayName: NapCat WebUI Management
       audience: user
@@ -200,14 +427,31 @@ contributes:
           type: http
           endpoint: http://127.0.0.1:6099/webui
           timeoutMs: 1800
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+
   glimmer.protocolBridge:
     - id: onebot-bridge
       displayName: OneBot Bridge
       audience: adapter
       kind: protocolBridge
       required: true
-      description: NapCat reverse WebSocket bridge into Glimmer Cradle. The bridge is ready only after NapCat connects and get_login_info succeeds.
+      description: OneBot reverse WebSocket bridge into Glimmer Cradle. The bridge is ready only after the upstream connects and get_login_info succeeds.
       readinessGates:
         - kind: readiness
           type: websocket
           timeoutMs: 1800
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions

@@ -1,7 +1,16 @@
 import { z } from 'zod';
 
+export const NapcatAdapterProfileModeSchema = z
+  .enum(['external_onebot', 'managed_napcat_windows']);
+
 export const NapcatAdapterConfigSchema = z
   .object({
+    profile: z
+      .object({
+        mode: NapcatAdapterProfileModeSchema.default('external_onebot'),
+      })
+      .default({}),
+
     transport: z
       .object({
         host: z.string().default('127.0.0.1'),
@@ -13,11 +22,10 @@ export const NapcatAdapterConfigSchema = z
       })
       .default({}),
 
-    external_dependency: z
+    managed_napcat_windows: z
       .object({
         package_dir: z.string().default('data/packages/managed-resources/lociere.napcat-adapter/napcat'),
         work_dir: z.string().default('data/state/extensions/lociere.napcat-adapter/napcat'),
-        managed_process_enabled: z.boolean().default(true),
         launch_mode: z.enum(['official_direct', 'official_shell', 'custom']).default('official_direct'),
         qq_path: z.string().default(''),
         command: z.string().default(''),
@@ -108,3 +116,5 @@ export const NapcatAdapterConfigSchema = z
 
 
 export type NapcatAdapterConfig = z.infer<typeof NapcatAdapterConfigSchema>;
+export type NapcatAdapterProfileMode = z.infer<typeof NapcatAdapterProfileModeSchema>;
+export type ManagedNapcatWindowsConfig = NapcatAdapterConfig['managed_napcat_windows'];
