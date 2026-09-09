@@ -25,7 +25,7 @@
     "release:prepare": "pnpm validate && pnpm build && node scripts/build-release.mjs"
   },
   "peerDependencies": {
-    "@glimmer-cradle/extension-sdk": "0.1.8",
+    "@glimmer-cradle/extension-sdk": "0.1.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {

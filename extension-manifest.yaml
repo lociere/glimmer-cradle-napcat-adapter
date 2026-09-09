@@ -14,7 +14,7 @@ platforms:
   - windows-x64
   - linux-x64
 main: dist/index.js
-minAppVersion: 0.1.8
+minAppVersion: 0.1.0
 tags:
   - adapter
   - websocket
@@ -39,8 +39,8 @@ permissions:
   - EXTERNAL_PROCESS
   - AGENT_REGISTER
 engines:
-  glimmerCradle: 0.1.8
-  extensionSdk: 0.1.8
+  glimmerCradle: 0.1.0
+  extensionSdk: 0.1.0
 
 contributes:
   glimmer.command:
