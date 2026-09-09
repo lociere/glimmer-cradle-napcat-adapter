@@ -71,9 +71,9 @@ jobs:
       - name: 验证 Adapter
         working-directory: adapter
         run: |
+          pnpm install --frozen-lockfile
           test "$(node -p 'require("./package.json").version')" = "${GITHUB_REF_NAME#v}"
           test "$(node -e 'const fs=require("fs"),y=require("yaml"); process.stdout.write(y.parse(fs.readFileSync("extension-manifest.yaml","utf8")).version)')" = "${GITHUB_REF_NAME#v}"
-          pnpm install --frozen-lockfile
           node scripts/link-local-sdk.mjs "$GITHUB_WORKSPACE/glimmer-cradle"
           pnpm validate
           GCEX_PLATFORMS=windows-x64,linux-x64 pnpm release:prepare
