@@ -14,7 +14,7 @@
 
 import crypto from 'crypto';
 
-import type { ConversationAddress, PerceptionModalityItem } from '@glimmer-cradle/protocol';
+import type { ConversationAddress, PerceptionModalityItem } from '@glimmer-cradle/extension-sdk/contracts';
 import type {
   ExtensionPerceptionProposal,
   ExtensionLogger,

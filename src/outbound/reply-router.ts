@@ -13,8 +13,7 @@
  */
 
 import type { ExtensionLogger } from '@glimmer-cradle/extension-sdk';
-import type { ChannelReplyPayload } from '@glimmer-cradle/extension-sdk/contracts';
-import type { ChannelReplyMessage } from '@glimmer-cradle/protocol';
+import type { ChannelReplyMessage, ChannelReplyPayload } from '@glimmer-cradle/extension-sdk/contracts';
 import type { NapcatAdapterConfig } from '../../config/schema';
 import { cleanOutboundReply } from '../perception/perception-builder';
 import type { OneBotActionCaller } from '../connection/onebot-action-client';

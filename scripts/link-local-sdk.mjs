@@ -7,14 +7,18 @@ if (!glimmerRoot || !fs.existsSync(path.join(glimmerRoot, 'packages', 'extension
   throw new Error('请传入 Glimmer Cradle 主仓库路径，或设置 GLIMMER_CRADLE_ROOT。');
 }
 
-for (const [name, source] of [
+const sources = [
+  ['contracts', path.join(glimmerRoot, 'contracts')],
   ['extension-sdk', path.join(glimmerRoot, 'packages', 'extension-sdk')],
-  ['protocol', path.join(glimmerRoot, 'protocol')],
-]) {
+];
+const localScopeRoot = path.join(process.cwd(), 'node_modules', '@glimmer-cradle');
+fs.rmSync(path.join(localScopeRoot, 'protocol'), { recursive: true, force: true });
+
+for (const [name, source] of sources) {
   if (!fs.existsSync(path.join(source, 'dist'))) {
     throw new Error(`${name} 尚未构建，请先在主仓库执行 pnpm build:extension-tooling。`);
   }
-  const target = path.join(process.cwd(), 'node_modules', '@glimmer-cradle', name);
+  const target = path.join(localScopeRoot, name);
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.rmSync(target, { recursive: true, force: true });
   fs.symlinkSync(source, target, process.platform === 'win32' ? 'junction' : 'dir');

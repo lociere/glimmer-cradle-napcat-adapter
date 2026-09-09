@@ -16,15 +16,16 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "link:local-sdk": "node scripts/link-local-sdk.mjs",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "validate": "pnpm typecheck && pnpm test",
-    "release:prepare": "pnpm build && node scripts/build-release.mjs"
+    "validate:manifest": "node scripts/validate-manifest.mjs",
+    "validate": "pnpm validate:manifest && pnpm typecheck && pnpm test",
+    "release:prepare": "pnpm validate && pnpm build && node scripts/build-release.mjs"
   },
   "peerDependencies": {
-    "@glimmer-cradle/extension-sdk": "^0.1.0",
-    "@glimmer-cradle/protocol": "^0.1.0",
+    "@glimmer-cradle/extension-sdk": "0.1.8",
     "zod": "^3.23.0"
   },
   "devDependencies": {

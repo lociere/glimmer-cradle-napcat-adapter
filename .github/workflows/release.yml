@@ -1,0 +1,126 @@
+name: 发布 NapCat Adapter
+
+concurrency:
+  group: release-napcat-adapter-${{ github.ref }}
+  cancel-in-progress: false
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+jobs:
+  build-fixed-artifacts:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: 检出 Adapter
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          path: adapter
+
+      - name: 检出精确 SDK 源
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: lociere/glimmer-cradle
+          ref: extension-sdk-v0.1.8
+          path: glimmer-cradle
+
+      - name: 配置 pnpm
+        uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.18.0
+
+      - name: 构建精确 SDK 投影
+        working-directory: glimmer-cradle
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build:extension-tooling
+
+      - name: 绑定 SDK tag 与 npm 发布包
+        working-directory: glimmer-cradle
+        run: |
+          SDK_PACKAGE_DIR="$GITHUB_WORKSPACE/glimmer-cradle/dist/napcat-sdk-check"
+          mkdir -p "$SDK_PACKAGE_DIR"
+          pnpm --filter @glimmer-cradle/contracts pack --pack-destination "$SDK_PACKAGE_DIR"
+          pnpm --filter @glimmer-cradle/extension-sdk pack --pack-destination "$SDK_PACKAGE_DIR"
+
+          verify_public_package() {
+            PACKAGE_NAME="$1"
+            PACKAGE_FILE="$2"
+            REMOTE_SHA1="$(npm view "${PACKAGE_NAME}@0.1.8" dist.shasum)"
+            LOCAL_SHA1="$(sha1sum "$PACKAGE_FILE" | cut -d' ' -f1)"
+            test -n "$REMOTE_SHA1"
+            test "$REMOTE_SHA1" = "$LOCAL_SHA1"
+          }
+
+          verify_public_package '@glimmer-cradle/contracts' "$SDK_PACKAGE_DIR/glimmer-cradle-contracts-0.1.8.tgz"
+          verify_public_package '@glimmer-cradle/extension-sdk' "$SDK_PACKAGE_DIR/glimmer-cradle-extension-sdk-0.1.8.tgz"
+
+      - name: 验证 Adapter
+        working-directory: adapter
+        run: |
+          test "$(node -p 'require("./package.json").version')" = "${GITHUB_REF_NAME#v}"
+          test "$(node -e 'const fs=require("fs"),y=require("yaml"); process.stdout.write(y.parse(fs.readFileSync("extension-manifest.yaml","utf8")).version)')" = "${GITHUB_REF_NAME#v}"
+          pnpm install --frozen-lockfile
+          node scripts/link-local-sdk.mjs "$GITHUB_WORKSPACE/glimmer-cradle"
+          pnpm validate
+          GCEX_PLATFORMS=windows-x64,linux-x64 pnpm release:prepare
+          cd release
+          sha256sum --check SHA256SUMS
+
+      - name: 验证主仓安装事务
+        working-directory: glimmer-cradle
+        run: |
+          export GLIMMER_EXTENSION_PACKAGE_CANDIDATE="$GITHUB_WORKSPACE/adapter/release/lociere.napcat-adapter-${GITHUB_REF_NAME#v}-linux-x64.gcex"
+          export GLIMMER_EXTENSION_RELEASE_MANIFEST="$GITHUB_WORKSPACE/adapter/release/release-manifest.json"
+          export GLIMMER_EXTENSION_EXPECTED_ID="lociere.napcat-adapter"
+          export GLIMMER_EXTENSION_EXPECTED_VERSION="${GITHUB_REF_NAME#v}"
+          pnpm --filter @glimmer-cradle/kernel exec vitest run tests/application/extension-package-manager.test.ts -t "installs a supplied fixed extension candidate"
+
+      - name: 生成 GitHub provenance
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: adapter/release/*
+
+      - name: 上传固定发布物
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: napcat-adapter-${{ github.ref_name }}
+          path: adapter/release/
+          if-no-files-found: error
+
+  release:
+    needs: build-fixed-artifacts
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: 下载固定发布物
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: napcat-adapter-${{ github.ref_name }}
+          path: release/
+
+      - name: 重新验证摘要
+        working-directory: release
+        run: sha256sum --check SHA256SUMS
+
+      - name: 发布 GitHub Release
+        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        with:
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          files: |
+            release/*.gcex
+            release/release-manifest.json
+            release/SHA256SUMS

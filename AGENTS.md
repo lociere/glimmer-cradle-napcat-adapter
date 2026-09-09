@@ -1,7 +1,7 @@
 # Glimmer Cradle NapCat Adapter 协作约定
 
 - 本仓库是独立第三方集成，不是 Glimmer Cradle 第一方扩展。
-- 运行边界以 `extension-manifest.yaml` 和公开 Extension SDK 为准，不得引用 Kernel、Cognition 或产品源码。
+- 运行边界以 `extension-manifest.yaml` 和公开 Extension SDK 为准，不得引用 Kernel、Cognition、Contract Spine 包或产品源码。
 - 当前发行物顶层可声明 `desktop + personal-server` 与 `windows-x64 + linux-x64`，但 profile owner 必须明确：
   - `profile.mode=external_onebot` 是默认最小可运行形态，可用于 Personal Server / Linux，由用户自管 OneBot / NapCat 上游反向连接。
   - `profile.mode=managed_napcat_windows` 只允许在 Desktop Windows x64 上显式启用，负责受管 NapCat 进程与 WebUI 管理闭环。
