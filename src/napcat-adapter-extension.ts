@@ -1,7 +1,12 @@
 import { BaseExtension } from '@glimmer-cradle/extension-sdk';
 import type { ChannelReplyPayload } from '@glimmer-cradle/extension-sdk/contracts';
 import net from 'node:net';
-import { NapcatAdapterConfig, NapcatAdapterConfigSchema, type NapcatAdapterProfileMode } from '../config/schema';
+import {
+  NapcatAdapterConfig,
+  NapcatAdapterConfigSchema,
+  NapcatAdapterProfileModeSchema,
+  type NapcatAdapterProfileMode,
+} from '../config/schema';
 import { resolveAccessToken } from './connection/access-token';
 import { OneBotBridgeSession } from './connection/onebot-bridge-session';
 import { InboundPipeline } from './inbound/inbound-pipeline';
@@ -26,9 +31,12 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
   }
 
   protected override async activate(): Promise<void> {
-    this.profileMode = this.config.profile.mode;
+    this.profileMode = NapcatAdapterProfileModeSchema.parse(this.ctx.activationProfile);
     const activeAttention = new ActiveAttentionStore(this.ctx.ports.sceneAttention);
-    const accessToken = resolveAccessToken(this.config.transport);
+    const accessToken = await resolveAccessToken(
+      this.config.transport,
+      (key) => this.ctx.ports.secrets.get(key),
+    );
     const oneBotPort = this.config.transport.port > 0
       ? this.config.transport.port
       : await selectLoopbackPort(this.config.transport.host);

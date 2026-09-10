@@ -1,6 +1,6 @@
 id: lociere.napcat-adapter
 name: NapCat Adapter
-version: 0.1.0
+version: 0.2.0
 publisher: lociere
 license: GPL-3.0-only
 repository: https://github.com/lociere/glimmer-cradle-napcat-adapter
@@ -14,7 +14,7 @@ platforms:
   - windows-x64
   - linux-x64
 main: dist/index.js
-minAppVersion: 0.1.0
+minAppVersion: 0.2.0
 tags:
   - adapter
   - websocket
@@ -32,15 +32,44 @@ permissions:
   - PERCEPTION_WRITE
   - EVENT_SUBSCRIBE
   - CONFIG_READ_SELF
+  - SECRET_READ_SELF
   - CHAT_SEND
   - COMMAND_REGISTER
   - RUNTIME_PROJECTION_WRITE
   - EXTERNAL_NETWORK
-  - EXTERNAL_PROCESS
   - AGENT_REGISTER
 engines:
-  glimmerCradle: 0.1.0
-  extensionSdk: 0.1.0
+  glimmerCradle: 0.2.0
+  extensionSdk: 0.2.0
+
+activationProfiles:
+  - id: external_onebot
+    title: 外部 OneBot
+    description: 接受用户或部署层管理的 NapCat / OneBot 11 反向 WebSocket 连接，不管理第三方进程。
+    default: true
+    requirements:
+      products:
+        - desktop
+        - personal-server
+      platforms:
+        - windows-x64
+        - linux-x64
+      features:
+        - extensions
+    permissions: []
+  - id: managed_napcat_windows
+    title: Windows 受管 NapCat
+    description: 仅供 Desktop Windows 管理 NapCat OneKey、QQ 注入和 WebUI。
+    default: false
+    requirements:
+      products:
+        - desktop
+      platforms:
+        - windows-x64
+      features:
+        - extensions
+    permissions:
+      - EXTERNAL_PROCESS
 
 contributes:
   glimmer.command:
@@ -71,6 +100,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - command: lociere.napcat-adapter.quickLogin
       title: 快速登录账号
       audience: user
@@ -85,6 +116,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - command: lociere.napcat-adapter.setAutoLoginAccount
       title: 设置自动登录账号
       audience: user
@@ -99,6 +132,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - command: lociere.napcat-adapter.openWebUi
       title: 打开管理面板
       audience: user
@@ -113,6 +148,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
 
   glimmer.capability:
     - id: qq-ingress
@@ -167,9 +204,11 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
 
   glimmer.managementSurface:
-    - id: napcat-status
+    - id: onebot-status-external
       title: OneBot 状态
       audience: user
       kind: status
@@ -188,6 +227,29 @@ contributes:
           - linux-x64
         features:
           - extensions
+        profiles:
+          - external_onebot
+    - id: onebot-status-managed
+      title: OneBot 与 NapCat 状态
+      audience: user
+      kind: status
+      resourceIds:
+        - napcat-managed-process
+        - onebot-bridge
+        - webui-management
+      capabilityIds:
+        - qq-ingress
+        - qq-reply
+        - napcat-management
+      requirements:
+        products:
+          - desktop
+        platforms:
+          - windows-x64
+        features:
+          - extensions
+        profiles:
+          - managed_napcat_windows
     - id: napcat-management
       title: NapCat 管理
       audience: user
@@ -204,13 +266,15 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
 
   glimmer.setting:
-    - key: profile.mode
-      title: 上游 Profile
-      description: external_onebot 等待用户自管 OneBot/NapCat 反向连接；managed_napcat_windows 仅在 Desktop Windows 上显式启用受管 NapCat。
+    - key: transport.host
+      title: OneBot 监听地址
+      description: 同机接入使用回环地址；Compose 私有网络或跨主机接入必须显式选择受保护的监听地址。
       type: string
-      default: external_onebot
+      default: 127.0.0.1
       requirements:
         products:
           - desktop
@@ -220,11 +284,42 @@ contributes:
           - linux-x64
         features:
           - extensions
+        profiles:
+          - external_onebot
     - key: transport.port
       title: OneBot 端口
       description: 反向 WebSocket 监听端口；0 仅允许回环地址时自动选择空闲端口。
       type: number
       default: 0
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
+    - key: transport.path
+      title: OneBot WebSocket 路径
+      description: NapCat 反向 WebSocket 必须连接的精确路径。
+      type: string
+      default: /
+      requirements:
+        products:
+          - desktop
+          - personal-server
+        platforms:
+          - windows-x64
+          - linux-x64
+        features:
+          - extensions
+    - key: onebot_access_token
+      title: OneBot Access Token
+      description: write-only Secret；只注入当前 Adapter Host，不进入普通扩展配置、快照或日志。
+      type: string
+      secret: true
+      requiresRestart: true
       requirements:
         products:
           - desktop
@@ -247,6 +342,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - key: managed_napcat_windows.qq_path
       title: 专用 QQ 路径
       description: 留空时优先使用 NapCat 包内置 QQ，再回退系统 QQ。建议指向 NapCat 专用 QQ.exe，避免影响日常 QQ。
@@ -260,6 +357,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - key: managed_napcat_windows.elevation_mode
       title: 启动权限
       description: user 由摇篮直接监督官方启动器；admin 仅在本机确需提权时使用，会变成 detached bootstrap 并等待 probe 闭环。
@@ -273,6 +372,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - key: managed_napcat_windows.allow_preexisting_qq
       title: 允许已运行 QQ
       description: 默认关闭；仅当 NapCat 将要注入的目标 QQ.exe 已运行时才阻止启动。日常使用的其他 QQ 实例不应阻止 NapCat。
@@ -286,6 +387,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - key: managed_napcat_windows.preferred_account
       title: 首选账号
       description: 留空表示沿用当前 NapCat 账号。
@@ -299,6 +402,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - key: ingress.group_enabled
       title: 群聊接入
       description: 允许 OneBot 群聊消息进入受控感知链路。
@@ -389,6 +494,8 @@ contributes:
           - linux-x64
         features:
           - extensions
+        profiles:
+          - external_onebot
     - id: napcat-managed-process
       displayName: NapCat Managed Process
       audience: host
@@ -419,6 +526,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
     - id: webui-management
       displayName: NapCat WebUI Management
       audience: user
@@ -437,6 +546,8 @@ contributes:
           - windows-x64
         features:
           - extensions
+        profiles:
+          - managed_napcat_windows
 
   glimmer.protocolBridge:
     - id: onebot-bridge

@@ -5,20 +5,15 @@ export const NapcatAdapterProfileModeSchema = z
 
 export const NapcatAdapterConfigSchema = z
   .object({
-    profile: z
-      .object({
-        mode: NapcatAdapterProfileModeSchema.default('external_onebot'),
-      })
-      .default({}),
-
     transport: z
       .object({
         host: z.string().default('127.0.0.1'),
         port: z.coerce.number().int().nonnegative().max(65535).default(0),
         path: z.string().default('/'),
         access_token: z.string().default(''),
-        access_token_env: z.string().default(''),
-        token_from_secrets: z.boolean().default(false),
+        access_token_secret: z.string().default('onebot_access_token'),
+        access_token_env: z.string().default('NAPCAT_ONEBOT_ACCESS_TOKEN'),
+        token_from_secrets: z.boolean().default(true),
       })
       .default({}),
 

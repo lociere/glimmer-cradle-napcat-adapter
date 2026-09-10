@@ -2,7 +2,14 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { NapcatAdapterConfigSchema } from '../config/schema';
+import YAML from 'yaml';
+import {
+  BuiltInContributionPoint,
+  materializeManifestForActivationProfile,
+  validateExtensionManifest,
+} from '@glimmer-cradle/extension-sdk/manifest';
+import { NapcatAdapterConfigSchema, NapcatAdapterProfileModeSchema } from '../config/schema';
+import { resolveAccessToken } from './connection/access-token';
 import {
   buildNapcatStartupRecoveryActions,
   isQqProcessConflict,
@@ -81,6 +88,42 @@ function webuiSnapshot(state: 'ready' | 'unavailable', summary: string): NapcatW
 }
 
 describe('NapCat runtime projection', () => {
+  it('materializes a least-privilege external profile for Personal Server', () => {
+    const source = YAML.parse(fs.readFileSync(path.resolve(__dirname, '../extension-manifest.yaml'), 'utf8'));
+    const parsed = validateExtensionManifest(source);
+    expect(parsed.ok).toBe(true);
+    const effective = materializeManifestForActivationProfile(parsed.data!, {
+      productId: 'personal-server',
+      platform: 'linux-x64',
+      features: new Set(['extensions']),
+    });
+
+    expect(effective.profile.id).toBe('external_onebot');
+    expect(effective.manifest.permissions).not.toContain('EXTERNAL_PROCESS');
+    expect(effective.manifest.permissions).toContain('EXTERNAL_NETWORK');
+    expect(contributionIds(effective.manifest.contributes[BuiltInContributionPoint.managedResource]))
+      .toEqual(['external-onebot-source']);
+    expect(contributionIds(effective.manifest.contributes[BuiltInContributionPoint.managementSurface]))
+      .toEqual(['onebot-status-external']);
+  });
+
+  it('adds process authority only for the Desktop Windows managed profile', () => {
+    const source = YAML.parse(fs.readFileSync(path.resolve(__dirname, '../extension-manifest.yaml'), 'utf8'));
+    const parsed = validateExtensionManifest(source);
+    expect(parsed.ok).toBe(true);
+    const effective = materializeManifestForActivationProfile(parsed.data!, {
+      productId: 'desktop',
+      platform: 'windows-x64',
+      features: new Set(['extensions']),
+    }, 'managed_napcat_windows');
+
+    expect(effective.manifest.permissions).toContain('EXTERNAL_PROCESS');
+    expect(contributionIds(effective.manifest.contributes[BuiltInContributionPoint.managedResource]))
+      .toEqual(['napcat-managed-process', 'webui-management']);
+    expect(contributionIds(effective.manifest.contributes[BuiltInContributionPoint.managementSurface]))
+      .toEqual(['onebot-status-managed', 'napcat-management']);
+  });
+
   it('keeps bootstrap exit code 0 in starting until WebUI or OneBot is ready', () => {
     const resource = toProcessNode(processSnapshot({
       state: 'detached',
@@ -143,10 +186,27 @@ describe('NapCat runtime projection', () => {
     expect(actions[0]).not.toContain('关闭所有 QQ');
   });
 
-  it('defaults to external_onebot as the minimum runnable profile', () => {
-    const parsed = NapcatAdapterConfigSchema.parse({});
+  it('keeps the runtime profile vocabulary aligned with Host activation profiles', () => {
+    const transport = NapcatAdapterConfigSchema.parse({}).transport;
+    expect(transport.access_token_secret).toBe('onebot_access_token');
+    expect(transport.token_from_secrets).toBe(true);
+    expect(transport.access_token_env)
+      .toBe('NAPCAT_ONEBOT_ACCESS_TOKEN');
+    expect(NapcatAdapterProfileModeSchema.parse('external_onebot')).toBe('external_onebot');
+    expect(NapcatAdapterProfileModeSchema.parse('managed_napcat_windows')).toBe('managed_napcat_windows');
+    expect(() => NapcatAdapterProfileModeSchema.parse('docker')).toThrow();
+  });
 
-    expect(parsed.profile.mode).toBe('external_onebot');
+  it('prefers the Host-scoped Secret and refuses plain config by default', async () => {
+    const transport = NapcatAdapterConfigSchema.parse({
+      transport: { access_token: 'plain-config-token', access_token_env: '' },
+    }).transport;
+
+    await expect(resolveAccessToken(
+      transport,
+      async (key) => key === 'onebot_access_token' ? 'host-secret-token' : undefined,
+    )).resolves.toBe('host-secret-token');
+    await expect(resolveAccessToken(transport, async () => undefined)).resolves.toBe('');
   });
 
   it('resolves NapCat Windows OneKey Shell layout from versions config', () => {
@@ -269,3 +329,9 @@ describe('NapCat runtime projection', () => {
     expect(summarizeManagedProfileState(process, onebot, webui)).toContain('启动超时');
   });
 });
+
+function contributionIds(value: unknown): string[] {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => item && typeof item === 'object' ? String((item as { id?: unknown }).id ?? '') : '')
+    .filter(Boolean);
+}
