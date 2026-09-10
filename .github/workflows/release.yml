@@ -91,7 +91,7 @@ jobs:
           test "$(node -e 'const fs=require("fs"),y=require("yaml"); process.stdout.write(y.parse(fs.readFileSync("extension-manifest.yaml","utf8")).version)')" = "${RELEASE_TAG#v}"
           node scripts/link-local-sdk.mjs "$GITHUB_WORKSPACE/glimmer-cradle"
           pnpm validate
-          GCEX_PLATFORMS=windows-x64,linux-x64 pnpm release:prepare
+          GITHUB_REF_NAME="$RELEASE_TAG" GCEX_PLATFORMS=windows-x64,linux-x64 pnpm release:prepare
           cd release
           sha256sum --check SHA256SUMS
 
