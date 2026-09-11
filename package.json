@@ -1,6 +1,6 @@
 {
   "name": "@lociere/glimmer-cradle-napcat-adapter",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "private": false,
   "description": "Third-party NapCat integration for Glimmer Cradle.",
   "license": "GPL-3.0-only",
@@ -17,7 +17,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "link:local-sdk": "node scripts/link-local-sdk.mjs",
-    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json",
+    "build": "node scripts/clean-dist.mjs && tsc -p tsconfig.json && node scripts/bundle-runtime.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "validate:manifest": "node scripts/validate-manifest.mjs",
@@ -25,11 +25,11 @@
     "release:prepare": "pnpm validate && pnpm build && node scripts/build-release.mjs"
   },
   "peerDependencies": {
-    "@glimmer-cradle/extension-sdk": "0.2.2",
-    "zod": "^3.23.0"
+    "@glimmer-cradle/extension-sdk": "0.2.3"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
+    "esbuild": "^0.21.5",
     "typescript": "^6.0.2",
     "vitest": "^1.6.1",
     "yaml": "^2.8.1",
