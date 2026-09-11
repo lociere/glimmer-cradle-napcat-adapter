@@ -13,7 +13,7 @@ on:
       tag:
         description: 要复验的精确 Adapter tag
         required: true
-        default: v0.2.0
+        default: v0.2.1
         type: string
 
 env:
@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           repository: lociere/glimmer-cradle
-          ref: extension-sdk-v0.2.0
+          ref: extension-sdk-v0.2.1
           path: glimmer-cradle
 
       - name: 配置 pnpm
@@ -70,14 +70,14 @@ jobs:
           verify_public_package() {
             PACKAGE_NAME="$1"
             PACKAGE_FILE="$2"
-            REMOTE_SHA1="$(npm view "${PACKAGE_NAME}@0.2.0" dist.shasum)"
+            REMOTE_SHA1="$(npm view "${PACKAGE_NAME}@0.2.1" dist.shasum)"
             LOCAL_SHA1="$(sha1sum "$PACKAGE_FILE" | cut -d' ' -f1)"
             test -n "$REMOTE_SHA1"
             test "$REMOTE_SHA1" = "$LOCAL_SHA1"
           }
 
-          verify_public_package '@glimmer-cradle/contracts' "$SDK_PACKAGE_DIR/glimmer-cradle-contracts-0.2.0.tgz"
-          verify_public_package '@glimmer-cradle/extension-sdk' "$SDK_PACKAGE_DIR/glimmer-cradle-extension-sdk-0.2.0.tgz"
+          verify_public_package '@glimmer-cradle/contracts' "$SDK_PACKAGE_DIR/glimmer-cradle-contracts-0.2.1.tgz"
+          verify_public_package '@glimmer-cradle/extension-sdk' "$SDK_PACKAGE_DIR/glimmer-cradle-extension-sdk-0.2.1.tgz"
 
       - name: 验证 Adapter
         working-directory: adapter
