@@ -1,6 +1,6 @@
 id: lociere.napcat-adapter
 name: NapCat Adapter
-version: 0.2.3
+version: 0.2.4
 publisher: lociere
 license: GPL-3.0-only
 repository: https://github.com/lociere/glimmer-cradle-napcat-adapter
@@ -14,7 +14,7 @@ platforms:
   - windows-x64
   - linux-x64
 main: dist/index.js
-minAppVersion: 0.2.3
+minAppVersion: 0.2.5
 tags:
   - adapter
   - websocket
@@ -39,8 +39,8 @@ permissions:
   - EXTERNAL_NETWORK
   - AGENT_REGISTER
 engines:
-  glimmerCradle: 0.2.3
-  extensionSdk: 0.2.3
+  glimmerCradle: 0.2.5
+  extensionSdk: 0.2.5
 
 activationProfiles:
   - id: external_onebot

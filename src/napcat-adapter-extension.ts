@@ -24,6 +24,7 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
   private session: OneBotBridgeSession | null = null;
   private replyRouter: ReplyRouter | null = null;
   private activeAttention: ActiveAttentionStore | null = null;
+  private reportRuntimeProjection: (() => Promise<void>) | null = null;
   private profileMode: NapcatAdapterProfileMode = 'external_onebot';
 
   constructor() {
@@ -31,6 +32,8 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
   }
 
   protected override async activate(): Promise<void> {
+    const logger = this.logger;
+    const runtimePort = this.ctx.ports.runtime;
     this.profileMode = NapcatAdapterProfileModeSchema.parse(this.ctx.activationProfile);
     const activeAttention = new ActiveAttentionStore(this.ctx.ports.sceneAttention);
     const accessToken = await resolveAccessToken(
@@ -61,13 +64,17 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
       onMessageEvent: (event) => inbound?.process(event),
       onDisconnected: () => {
         activeAttention.clearFocus();
-        void reportRuntimeProjection().catch((error) => this.logger.warn('[napcat] runtime projection report failed', {
+        const report = this.reportRuntimeProjection;
+        if (!report) return;
+        void report().catch((error) => logger.warn('[napcat] runtime projection report failed', {
           error: error instanceof Error ? error.message : String(error),
         }));
       },
       onReady: (loginInfo) => {
         profileRuntime.onOneBotReady(loginInfo);
-        void reportRuntimeProjection().catch((error) => this.logger.warn('[napcat] runtime projection report failed', {
+        const report = this.reportRuntimeProjection;
+        if (!report) return;
+        void report().catch((error) => logger.warn('[napcat] runtime projection report failed', {
           error: error instanceof Error ? error.message : String(error),
         }));
       },
@@ -75,7 +82,7 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
 
     reportRuntimeProjection = async (): Promise<void> => {
       const projection = await this.buildRuntimeProjection(profileRuntime, session);
-      await this.ctx.ports.runtime.reportCapabilityGraph({
+      await runtimePort.reportCapabilityGraph({
         nodes: projection.nodes,
         diagnostics: projection.diagnostics,
       });
@@ -107,11 +114,10 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
     this.profileRuntime = profileRuntime;
     this.session = session;
     this.replyRouter = replyRouter;
-    this.addDisposable({ dispose: () => profileRuntime.dispose() });
-    this.addDisposable({ dispose: () => session.dispose() });
+    this.reportRuntimeProjection = reportRuntimeProjection;
     this.addDisposable(registerNapcatSourceContextSkill(this.ctx, this.profileMode));
     this.registerInterval(() => replyRouter.gc(), 60_000);
-    this.registerInterval(() => reportRuntimeProjection(), 5_000);
+    this.registerInterval(() => this.reportRuntimeProjection?.(), 5_000);
     this.registerSharedCommands(profileRuntime);
 
     this.subscribe('action.channel.reply', (payload) =>
@@ -132,6 +138,7 @@ export class NapcatAdapterExtension extends BaseExtension<NapcatAdapterConfig> {
   }
 
   protected override async deactivate(): Promise<void> {
+    this.reportRuntimeProjection = null;
     this.replyRouter?.clear();
     this.activeAttention?.clearFocus();
     await this.session?.dispose();

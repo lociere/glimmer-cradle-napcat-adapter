@@ -37,6 +37,7 @@ export class OneBotBridgeSession {
   private lastDisconnectedAt = '';
   private lastError = '';
   private loginInfo: unknown;
+  private disposed = false;
 
   constructor(
     private readonly logger: ExtensionLogger,
@@ -55,6 +56,7 @@ export class OneBotBridgeSession {
   }
 
   start(): void {
+    this.disposed = false;
     this.bridge.start({
       host: this.options.host,
       port: this.options.port,
@@ -65,6 +67,8 @@ export class OneBotBridgeSession {
   }
 
   async dispose(): Promise<void> {
+    if (this.disposed) return;
+    this.disposed = true;
     this.actionClient.logPendingOnStop();
     this.actionClient.rejectAll('OneBot bridge session disposed');
     this.bridge.dispose();
@@ -93,6 +97,7 @@ export class OneBotBridgeSession {
   }
 
   private handleClientConnected(socket: WebSocket): void {
+    if (this.disposed) return;
     this.state = 'connected';
     this.lastConnectedAt = new Date().toISOString();
     this.lastError = '';
@@ -108,11 +113,12 @@ export class OneBotBridgeSession {
     this.actionClient.rejectAll('OneBot bridge client disconnected');
     this.state = 'disconnected';
     this.lastDisconnectedAt = new Date().toISOString();
-    this.options.onDisconnected();
+    if (!this.disposed) this.options.onDisconnected();
     this.logger.warn('[napcat] OneBot client disconnected');
   }
 
   private async handleJsonMessage(data: unknown): Promise<void> {
+    if (this.disposed) return;
     if (this.actionClient.consumeResponse(data)) return;
 
     try {
@@ -134,6 +140,7 @@ export class OneBotBridgeSession {
   private async probeReadiness(): Promise<void> {
     try {
       const loginInfo = await this.actionClient.request('get_login_info', {});
+      if (this.disposed) return;
       this.state = 'ready';
       this.lastReadyAt = new Date().toISOString();
       this.lastError = '';
